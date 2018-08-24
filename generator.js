@@ -24,9 +24,9 @@ function Tile(){
   }
 };
 
-function Ambient(maze){
+function Ambient(maze, ambient){
   this.maze = maze;
-  this.box = $("<div class='box'></div>");
+  this.box = ambient ? ambient:$("<div class='box' style='background-color:black;'></div>");
   this.target = {r:-1, c:-1};
   this.state = null;
   this.locked = false;
@@ -36,7 +36,7 @@ function Ambient(maze){
   this.activate = function(){
     var pos = {r:getRandomNumber(0, maze.size.row), c:getRandomNumber(0, maze.size.col)};
     this.box.offset(this.maze.grid[pos.r][pos.c].dom_elem.offset());
-    this.box.css({"position":"fixed", "width":"16px", "height":"16px", "margin":"2px", "background-color":"black"});
+    this.box.css({"position":"fixed", "width": (this.maze.cellSize.width-4)+"px", "height": (this.maze.cellSize.height-4)+"px", "margin":"2px"});
     $("body").append(this.box);
     this.setNewPath([]);
     this.lookout();
@@ -75,6 +75,9 @@ function Ambient(maze){
   this.lookout = function(){
     // Checks for path to follow or roam
     var that = this;
+
+    // Uncomment following snippet to enable path to mouse pointer
+    /*
     $(document).mousemove(function(event){
 
       var elem = document.elementFromPoint(event.pageX, event.pageY);
@@ -93,10 +96,22 @@ function Ambient(maze){
         }
       }
     });
-    $(document).mouseleave(function(){
+    */
+
+
+    // Following snippet starts the roaming after mouse leaves the ambient
+    $(that.box).mouseleave(function(){
       if(that.state !== "roam"){
         that.setNewPath([]);
       } 
+    });
+
+    // Following snippet stops the roaming after mouse enters the ambient
+    $(that.box).mouseenter(function(){
+      if(that.state == "roam"){ 
+        that.state = "freeze";
+        that.box.stop();
+      }
     });
   }
 
@@ -145,7 +160,7 @@ function Ambient(maze){
     this.highlightPath(newpath);
     if(this.path.length > 0){
       this.step = 0;
-      this.box.css('background-color', 'blue');
+      this.box.css('color', 'blue');
       if(this.state !== "follow"){
         this.box.clearQueue().finish();
         this.locked = false;
@@ -153,7 +168,7 @@ function Ambient(maze){
         this.followPath();
       }
     }else{
-      this.box.css('background-color', 'black');
+      this.box.css('color', 'black');
       if(this.state !== "roam"){
         this.box.clearQueue().finish();
         this.locked = false;
@@ -209,8 +224,9 @@ function Ambient(maze){
 }
 
 
-function Maze(size){
+function Maze(size, cellSize){
   this.size = size;
+  this.cellSize = cellSize;
 
   this.grid = [];
 
@@ -281,7 +297,6 @@ function Maze(size){
 
 window.onload = init;
 
-
 function buildDisplay(maze){
   var container = $("<div class='container'></div>");
   var table = $("<table></table>");
@@ -290,8 +305,8 @@ function buildDisplay(maze){
     var row = $("<tr class='row' data-row='"+i+"'></tr>");
     for(var j=0;j<maze.size.col;j++){
       var cell = $("<td class='cell' data-col='"+j+"'></td>");
-      $(cell).css("width", "20px");
-      $(cell).css("height", "20px");
+      $(cell).css("width", maze.cellSize.width+"px");
+      $(cell).css("height", maze.cellSize.height+"px");
 
       if(maze.grid[i][j].walls[0]==0) $(cell).css("border-top", "1px solid black");
       if(maze.grid[i][j].walls[1]==0) $(cell).css("border-bottom", "1px solid black");
@@ -307,17 +322,57 @@ function buildDisplay(maze){
   $("body").append(container);
 }
 
+function addIconInMazeTile(maze, pos, iconUrl, linkUrl){
+  var icon = $("<img src='"+iconUrl+"' width='"+maze.cellSize.width+"' height='"+maze.cellSize.height+"'>");
+  var link = $("<a href='"+linkUrl+"'></a>");
+  $(link).append(icon);
+  $(maze.grid[pos.r][pos.c].dom_elem).append(link);
+}
+
+function addAmbientInMazeTile(maze, pos, isRoamer = false, iconUrl='question-mark.svg', linkUrl){
+  var icon = $("<img src='"+iconUrl+"' width='"+(maze.cellSize.width-4)+"' height='"+(maze.cellSize.height-4)+"'>");
+  var link = $("<a href='"+linkUrl+"'></a>");
+  $(link).append(icon);
+  if(pos){
+  }
+  var ambient = new Ambient(maze, $(link));
+  if(isRoamer){
+    ambient.activate();
+  }else{
+    if(!pos){
+      pos = {r:getRandomNumber(0, maze.size.row), c:getRandomNumber(0, maze.size.col)};
+    }
+    $(maze.grid[pos.r][pos.c].dom_elem).append(link);
+  }
+}
+
 function init(){
-  var width = $(window).width()/20;
-  var height = $(window).height()/20 - 1;
-  var maze = new Maze(new Dimension(height, width));
+  var cellHeight = 40;
+  var cellWidth = 40;
+  var width = parseInt($(window).width()/cellWidth);
+  var height = parseInt($(window).height()/cellHeight) - 1;
+  var maze = new Maze(new Dimension(height, width), {'width': cellWidth, 'height': cellHeight});
   maze.generate();
-  console.log(maze);
   buildDisplay(maze);
-  var ambient = new Ambient(maze);
-  ambient.activate();
+  
+  addAmbientInMazeTile(maze, null, true, 'mark-github.svg', 'https://github.com/zargit/zaze');
+  addAmbientInMazeTile(maze, null, true, 'fb-logo.svg', 'https://facebook.com/zarir.ahmad');
+  addAmbientInMazeTile(maze, null, true, 'queensu-logo.svg', 'mailto:a.zarir@queensu.ca');
+  addAmbientInMazeTile(maze, null, true, 'cv-logo.svg', 'https://zargit.github.io');
+  addAmbientInMazeTile(maze, null, true, 'iium-logo.svg', 'mailto:abdullah.zarir@live.iium.edu.my');
+  
+  //console.log(maze.size.col-1);
+  //addIconInMazeTile(maze, {r:0, c:maze.size.col-1}, 'mark-github.svg', 'https://github.com/zargit/zaze');
+  //var octocat = "<img src='mark-github.svg' width='"+cellWidth+"' height='"+cellHeight+"'>";
+  //var ambient = new Ambient(maze, $(octocat));
+  //ambient.activate();
+  
+  // Uncomment following snippet to activate spawning on mouse click
+  /*
   $("body").on('click', function(){
-    ambient = new Ambient(maze);
+    ambient = new Ambient(maze, $(octocat));
     ambient.activate();
   });
+  */
+
 }
